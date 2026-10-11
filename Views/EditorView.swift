@@ -5,6 +5,8 @@ import UIKit
 struct EditorView: View {
     @EnvironmentObject private var store: EditorStore
     @State private var photo: PhotosPickerItem?
+    @State private var pendingPhoto: UIImage?
+    @State private var confirmPhoto = false
     @State private var exportImage: UIImage?
     @State private var shareVisible = false
     @State private var prompt = ""
@@ -19,8 +21,10 @@ struct EditorView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 10) {
-                canvas.aspectRatio(1, contentMode: .fit).padding(.horizontal, 4)
+            ScrollView {
+              VStack(spacing: 10) {
+                canvas.frame(height: min(UIScreen.main.bounds.width - 12, 470)).padding(.horizontal, 4)
+                    .onTapGesture { dismissKeyboard() }
                 HStack(spacing: 8) {
                     TextField("Beschrijf hoe je de foto wilt aanpassen...", text: $prompt, axis: .vertical)
                         .lineLimit(1...3)
@@ -29,8 +33,7 @@ struct EditorView: View {
                         .submitLabel(.done)
                         .onSubmit { promptFocused = false }
                     Button(engine.isGenerating ? "Bezig..." : "AI genereren") {
-                        promptFocused = false
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        dismissKeyboard()
                         Task {
                             let source = editExistingPhoto ? selectedInputImage() : nil
                             await engine.generate(prompt: effectivePrompt, startingImage: source, strength: editStrength)
@@ -121,7 +124,7 @@ struct EditorView: View {
                 }
                 HStack {
                     PhotosPicker(selection: $photo, matching: .images) {
-                        Label("Foto", systemImage: "photo.badge.plus")
+                        Label("Kies foto", systemImage: "photo.badge.plus")
                     }
                     Button { store.moveSelected(-1) } label: { Image(systemName: "arrow.down.to.line") }
                     Button { store.moveSelected(1) } label: { Image(systemName: "arrow.up.to.line") }
@@ -157,8 +160,8 @@ struct EditorView: View {
                     }.padding(.horizontal)
                 }
 
-                List {
-                    Section("Lagen") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Lagen").font(.headline)
                         ForEach(Array(store.project.layers.reversed())) { layer in
                             HStack {
                                 Image(systemName: layer.id == store.selectedLayerID ? "checkmark.circle.fill" : "square.on.square")
@@ -173,9 +176,11 @@ struct EditorView: View {
                             .contentShape(Rectangle())
                             .onTapGesture { store.selectedLayerID = layer.id }
                         }
-                    }
-                }.listStyle(.insetGrouped)
+                }.padding(.horizontal)
+              }
             }
+            .scrollDismissesKeyboard(.interactively)
+            .background(Color.clear.contentShape(Rectangle()).onTapGesture { dismissKeyboard() })
             .navigationTitle("ArtCraft Offline")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -197,7 +202,43 @@ struct EditorView: View {
             .onChange(of: photo) { _, item in
                 Task {
                     guard let data = try? await item?.loadTransferable(type: Data.self) else { return }
-                    store.addImage(data)
+                    await MainActor.run {
+                        pendingPhoto = UIImage(data: data)
+                        confirmPhoto = pendingPhoto != nil
+                        dismissKeyboard()
+                    }
+                }
+            }
+            .sheet(isPresented: $confirmPhoto) {
+                NavigationStack {
+                    VStack(spacing: 18) {
+                        if let pendingPhoto {
+                            Image(uiImage: pendingPhoto)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: .infinity, maxHeight: 430)
+                        }
+                        Button("Gebruik deze foto") {
+                            if let data = pendingPhoto?.pngData() { store.addImage(data) }
+                            pendingPhoto = nil
+                            photo = nil
+                            confirmPhoto = false
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        Spacer()
+                    }
+                    .padding()
+                    .navigationTitle("Foto kiezen")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Annuleer") {
+                                pendingPhoto = nil
+                                photo = nil
+                                confirmPhoto = false
+                            }
+                        }
+                    }
                 }
             }
             .sheet(isPresented: $shareVisible) {
@@ -212,6 +253,11 @@ struct EditorView: View {
                 Text(store.errorMessage ?? "")
             }
         }
+    }
+
+    private func dismissKeyboard() {
+        promptFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     private func selectedInputImage() -> CGImage? {
