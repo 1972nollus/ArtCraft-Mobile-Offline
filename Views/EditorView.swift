@@ -8,6 +8,8 @@ struct EditorView: View {
     @State private var exportImage: UIImage?
     @State private var shareVisible = false
     @State private var prompt = ""
+    @State private var editExistingPhoto = false
+    @State private var editStrength = 0.4
     @AppStorage("generationStyle") private var generationStyle = "Realistisch"
     @AppStorage("preserveFace") private var preserveFace = true
     @AppStorage("preserveExpression") private var preserveExpression = true
@@ -29,11 +31,29 @@ struct EditorView: View {
                     Button(engine.isGenerating ? "Bezig..." : "AI genereren") {
                         promptFocused = false
                         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                        Task { await engine.generate(prompt: effectivePrompt) }
+                        Task {
+                            let source = editExistingPhoto ? selectedInputImage() : nil
+                            await engine.generate(prompt: effectivePrompt, startingImage: source, strength: editStrength)
+                        }
                     }
                         .buttonStyle(.borderedProminent)
                         .disabled(engine.isGenerating || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }.padding(.horizontal)
+                if !store.project.layers.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle("Bewerk bestaande foto (image-to-image)", isOn: $editExistingPhoto)
+                        if editExistingPhoto {
+                            HStack {
+                                Text("Aanpassingssterkte")
+                                Slider(value: $editStrength, in: 0.1...0.9, step: 0.05)
+                                Text("\(Int(editStrength * 100))%").monospacedDigit()
+                            }
+                            Text("Lager behoudt doorgaans meer van de bronfoto. Gezichtsbehoud is niet gegarandeerd.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
                 HStack(spacing: 12) {
                     Picker("Stijl", selection: $generationStyle) {
                         Text("Standaard").tag("Standaard")
@@ -49,7 +69,7 @@ struct EditorView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Toggle("Behoud gezicht", isOn: $preserveFace)
                         Toggle("Behoud gezichtsuitdrukking", isOn: $preserveExpression)
-                        Text("Deze opties sturen voorlopig alleen de tekstprompt. Voor echt behoud van de originele persoon is image-to-image/inpainting nodig.")
+                        Text("Promptsturing; met image-to-image gebruikt de app ook de geselecteerde foto. Identiteit en expressie zijn niet gegarandeerd.")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -171,6 +191,25 @@ struct EditorView: View {
                 Text(store.errorMessage ?? "")
             }
         }
+    }
+
+    private func selectedInputImage() -> CGImage? {
+        guard let layer = store.project.layers.first(where: { $0.id == store.selectedLayerID })
+                ?? store.project.layers.last,
+              let image = store.image(for: layer) else { return nil }
+        let target = CGSize(width: 512, height: 512)
+        let renderer = UIGraphicsImageRenderer(size: target)
+        let normalized = renderer.image { _ in
+            UIColor.white.setFill()
+            UIRectFill(CGRect(origin: .zero, size: target))
+            let ratio = min(target.width / max(image.size.width, 1),
+                            target.height / max(image.size.height, 1))
+            let size = CGSize(width: image.size.width * ratio, height: image.size.height * ratio)
+            image.draw(in: CGRect(x: (target.width - size.width) / 2,
+                                  y: (target.height - size.height) / 2,
+                                  width: size.width, height: size.height))
+        }
+        return normalized.cgImage
     }
 
     private var effectivePrompt: String {
