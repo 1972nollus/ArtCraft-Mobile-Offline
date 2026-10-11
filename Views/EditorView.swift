@@ -128,7 +128,7 @@ struct EditorView: View {
                         Image(uiImage: generated)
                             .resizable()
                             .scaledToFit()
-                            .frame(maxWidth: .infinity, maxHeight: 220)
+                            .frame(maxWidth: .infinity, minHeight: 280, maxHeight: 420)
                             .background(Color.white.opacity(0.07))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                         Button("Voeg toe als laag") {
