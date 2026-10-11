@@ -72,19 +72,22 @@ final class StableDiffusionEngine: ObservableObject {
                     let encoderConfig = MLModelConfiguration()
                     encoderConfig.computeUnits = .cpuOnly
                     let vae = try MLModel(contentsOf: encoderURL, configuration: encoderConfig)
-                    // Mirror the exact first input used by Apple Encoder.inputDescription.
+                    // Some Core ML VAE models also expose scalar conditioning inputs
+                    // such as [1, 1]. Locate the real planar RGB input by shape.
                     let descriptions = vae.modelDescription.inputDescriptionsByName
-                    guard let first = descriptions.first,
-                          let constraint = first.value.multiArrayConstraint else {
-                        throw NSError(domain: "ArtCraftOffline", code: 201,
-                                      userInfo: [NSLocalizedDescriptionKey: "Geen VAE-multiarray-invoer gevonden."])
+                    let rgbInputs = descriptions.filter { _, feature in
+                        guard let shape = feature.multiArrayConstraint?.shape.map({ $0.intValue }) else { return false }
+                        return shape.count == 4 && shape[0] == 1 && shape[1] == 3 && shape[2] > 0 && shape[3] > 0
+                    }
+                    guard let rgbInput = rgbInputs.first,
+                          let constraint = rgbInput.value.multiArrayConstraint else {
+                        let diagnostic = descriptions.map { name, feature in
+                            name + ": " + String(describing: feature.multiArrayConstraint?.shape ?? [])
+                        }.joined(separator: "; ")
+                        throw NSError(domain: "ArtCraftOffline", code: 202,
+                                      userInfo: [NSLocalizedDescriptionKey: "Geen RGB-invoer in VAE. Invoeren: " + diagnostic])
                     }
                     let shape = constraint.shape.map { $0.intValue }
-                    guard shape.count == 4, shape[0] == 1, shape[1] == 3,
-                          shape[2] > 0, shape[3] > 0 else {
-                        throw NSError(domain: "ArtCraftOffline", code: 202,
-                                      userInfo: [NSLocalizedDescriptionKey: "Ongeldig VAE-invoerformaat: " + String(describing: shape)])
-                    }
                     let width = shape[3], height = shape[2]
                     guard let ctx = CGContext(data: nil, width: width, height: height,
                                               bitsPerComponent: 8, bytesPerRow: 0,
