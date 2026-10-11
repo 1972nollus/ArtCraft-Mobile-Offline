@@ -25,18 +25,11 @@ struct ModelSettingsView: View {
                 }
                 if !showAdultModels { Text("Schakel NSFW-modellen in om Realistic Vision, Deliberate v2 en ReV Animated te tonen.").font(.footnote).foregroundStyle(.secondary) }
             }
-            Section("Lokale beeldmodellen") {
-                Text("Alle modellen worden op je iPhone opgeslagen. Internet is alleen nodig om ze te downloaden.")
-                    .font(.footnote)
-                TextField("Directe HTTPS-link naar Core ML-model", text: $models.urlText)
+            Section("Model downloaden") {
+                TextField("Directe HTTPS-link naar Core ML ZIP", text: $models.urlText)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.URL)
-                Button {
-                    choosingLocalFile = true
-                } label: {
-                    Label("Kies lokaal bestand", systemImage: "folder")
-                }
                 if models.downloading {
                     ProgressView(value: models.progress)
                     Button("Annuleer download", role: .destructive) { models.cancel() }
@@ -44,7 +37,22 @@ struct ModelSettingsView: View {
                     Button("Download model") { models.download() }
                         .disabled(models.urlText.isEmpty)
                 }
-                if !models.status.isEmpty { Text(models.status).font(.footnote) }
+                Text("Downloads kunnen op de achtergrond doorgaan zolang iOS de transfer toestaat.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            Section("Lokaal model importeren") {
+                Button {
+                    choosingLocalFile = true
+                } label: {
+                    Label("Kies lokaal bestand", systemImage: "folder")
+                }
+                Text("Gebruik een eerder opgeslagen Core ML ZIP of Resources-map. Opnieuw downloaden is niet nodig.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            if !models.status.isEmpty {
+                Section("Status") {
+                    Text(models.status).font(.footnote)
+                }
             }
             Section("Gedownloade bestanden") {
                 if models.models.isEmpty {
