@@ -75,6 +75,27 @@ struct EditorView: View {
                     }
                     .padding(.horizontal)
                 }
+                if engine.isGenerating {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if engine.currentStep > 0 {
+                            ProgressView(value: engine.progress)
+                            HStack {
+                                Text("Stap \(engine.currentStep) van \(engine.totalSteps) · \(Int(engine.progress * 100))%")
+                                Spacer()
+                                Text("Verstreken: \(Int(engine.elapsedSeconds)) sec")
+                            }
+                            .font(.caption)
+                            if let remaining = engine.remainingSeconds {
+                                Text("Nog ongeveer \(Int(remaining.rounded())) sec")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            ProgressView("Model laden / voorbereiding…")
+                        }
+                    }
+                    .padding(.horizontal)
+                }
                 if !engine.message.isEmpty {
                     Text(engine.message).font(.caption).foregroundStyle(.secondary)
                         .lineLimit(3).padding(.horizontal)
