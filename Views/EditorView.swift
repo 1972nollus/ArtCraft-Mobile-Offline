@@ -8,6 +8,7 @@ struct EditorView: View {
     @State private var exportImage: UIImage?
     @State private var shareVisible = false
     @State private var prompt = ""
+    @StateObject private var engine = StableDiffusionEngine()
     @State private var showModelInfo = false
 
     var body: some View {
@@ -18,10 +19,24 @@ struct EditorView: View {
                     TextField("Beschrijf hoe je de foto wilt aanpassen...", text: $prompt, axis: .vertical)
                         .lineLimit(1...3)
                         .textFieldStyle(.roundedBorder)
-                    Button("AI aanpassen") { showModelInfo = true }
+                    Button(engine.isGenerating ? "Bezig..." : "AI genereren") {
+                        Task { await engine.generate(prompt: prompt) }
+                    }
                         .buttonStyle(.borderedProminent)
-                        .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.project.layers.isEmpty)
+                        .disabled(engine.isGenerating || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }.padding(.horizontal)
+                if !engine.message.isEmpty {
+                    Text(engine.message).font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(3).padding(.horizontal)
+                }
+                if let generated = engine.generatedImage {
+                    Button("Voeg AI-afbeelding toe als laag") {
+                        if let data = generated.pngData() {
+                            store.addImage(data)
+                            engine.generatedImage = nil
+                        }
+                    }.buttonStyle(.borderedProminent)
+                }
                 HStack {
                     PhotosPicker(selection: $photo, matching: .images) {
                         Label("Foto", systemImage: "photo.badge.plus")
