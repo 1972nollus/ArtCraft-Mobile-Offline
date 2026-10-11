@@ -7,6 +7,7 @@ struct EditorView: View {
     @State private var photo: PhotosPickerItem?
     @State private var pendingPhoto: UIImage?
     @State private var confirmPhoto = false
+    @State private var fullscreenCanvas = false
     @State private var exportImage: UIImage?
     @State private var shareVisible = false
     @State private var prompt = ""
@@ -23,8 +24,25 @@ struct EditorView: View {
         NavigationStack {
             ScrollView {
               VStack(spacing: 10) {
-                canvas.frame(height: min(UIScreen.main.bounds.width - 12, 470)).padding(.horizontal, 4)
-                    .onTapGesture { dismissKeyboard() }
+                ZStack(alignment: .topTrailing) {
+                    canvas
+                        .frame(width: UIScreen.main.bounds.width - 12,
+                               height: UIScreen.main.bounds.width - 12)
+                        .background(Color.white)
+                        .onTapGesture { dismissKeyboard() }
+                    Button {
+                        dismissKeyboard()
+                        fullscreenCanvas = true
+                    } label: {
+                        Label("Vergroot", systemImage: "arrow.up.left.and.arrow.down.right")
+                            .labelStyle(.iconOnly)
+                            .padding(11)
+                            .background(.black.opacity(0.7), in: Circle())
+                    }
+                    .accessibilityLabel("Foto schermvullend bekijken")
+                    .padding(12)
+                }
+                .frame(maxWidth: .infinity)
                 HStack(spacing: 8) {
                     TextField("Beschrijf hoe je de foto wilt aanpassen...", text: $prompt, axis: .vertical)
                         .lineLimit(1...3)
@@ -209,6 +227,21 @@ struct EditorView: View {
                     }
                 }
             }
+            .fullScreenCover(isPresented: $fullscreenCanvas) {
+                ZStack(alignment: .topTrailing) {
+                    Color.black.ignoresSafeArea()
+                    GeometryReader { geometry in
+                        canvas
+                            .frame(width: geometry.size.width, height: geometry.size.width)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                    Button("Sluiten", systemImage: "xmark") { fullscreenCanvas = false }
+                        .labelStyle(.iconOnly)
+                        .padding()
+                        .background(.ultraThinMaterial, in: Circle())
+                        .padding()
+                }
+            }
             .sheet(isPresented: $confirmPhoto) {
                 NavigationStack {
                     VStack(spacing: 18) {
@@ -306,7 +339,7 @@ struct EditorView: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
-                            .frame(width: proxy.size.width * 0.96, height: proxy.size.height * 0.96)
+                            .frame(width: proxy.size.width, height: proxy.size.height)
                             .scaleEffect(layer.scale)
                             .rotationEffect(.degrees(layer.rotation))
                             .opacity(layer.opacity)
