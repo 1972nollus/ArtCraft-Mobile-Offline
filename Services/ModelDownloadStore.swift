@@ -14,6 +14,8 @@ final class ModelDownloadStore: ObservableObject {
     private var session: URLSession!
     private var proxy: BackgroundModelDownloadDelegate!
     private var currentTask: URLSessionDownloadTask?
+    private var installingModel = false
+    private var backgroundEventsFinished = false
 
     var modelDirectory: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -24,10 +26,11 @@ final class ModelDownloadStore: ObservableObject {
         scan()
         let proxy = BackgroundModelDownloadDelegate()
         self.proxy = proxy
-        proxy.backgroundEventsDone = {
-            let completion = BackgroundSessionBridge.completionHandler
-            BackgroundSessionBridge.completionHandler = nil
-            completion?()
+        proxy.backgroundEventsDone = { [weak self] in
+            Task { @MainActor in
+                self?.backgroundEventsFinished = true
+                self?.finishBackgroundEventsIfReady()
+            }
         }
         proxy.progressHandler = { [weak self] progress in
             Task { @MainActor in self?.progress = progress }
@@ -145,7 +148,20 @@ final class ModelDownloadStore: ObservableObject {
         }
     }
 
+    private func finishBackgroundEventsIfReady() {
+        guard backgroundEventsFinished && !installingModel else { return }
+        backgroundEventsFinished = false
+        let completion = BackgroundSessionBridge.completionHandler
+        BackgroundSessionBridge.completionHandler = nil
+        completion?()
+    }
+
     private func completeDownload(_ file: URL?, taskDescription: String?, error: Error?) async {
+        installingModel = true
+        defer {
+            installingModel = false
+            finishBackgroundEventsIfReady()
+        }
         downloading = false
         currentTask = nil
         guard let file else {
