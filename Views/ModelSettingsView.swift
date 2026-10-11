@@ -70,7 +70,7 @@ struct ModelSettingsView: View {
                 DisclosureGroup("Compatibiliteit", isExpanded: $compatibilityExpanded) {
                 Text("Voor beeldgeneratie is een volledige Core ML Stable Diffusion-pipeline nodig. Een ZIP downloaden betekent niet dat het model al geladen kan worden. GGUF-taalmodellen en losse .safetensors-checkpoints werken niet in deze Core ML-engine.")
                     .font(.footnote)
-                Text("NSFW-capabele Stable Diffusion-modellen kunnen later worden toegevoegd als compatibele geconverteerde Core ML-pipeline. De app biedt momenteel geen geteste NSFW-modelcatalogus.")
+                Text("Realistic Vision v2.0 is beschikbaar als NSFW-capabele Core ML-modelpreset. Het model heeft geen ingebouwde safety checker. De NSFW-schakelaar bepaalt alleen of deze preset in de catalogus zichtbaar is.")
                     .font(.footnote)
                 }
             }
