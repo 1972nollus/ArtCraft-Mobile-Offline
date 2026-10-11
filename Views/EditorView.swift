@@ -7,11 +7,21 @@ struct EditorView: View {
     @State private var photo: PhotosPickerItem?
     @State private var exportImage: UIImage?
     @State private var shareVisible = false
+    @State private var prompt = ""
+    @State private var showModelInfo = false
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 10) {
                 canvas.aspectRatio(1, contentMode: .fit).padding(.horizontal, 12)
+                HStack(spacing: 8) {
+                    TextField("Beschrijf hoe je de foto wilt aanpassen...", text: $prompt, axis: .vertical)
+                        .lineLimit(1...3)
+                        .textFieldStyle(.roundedBorder)
+                    Button("AI aanpassen") { showModelInfo = true }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.project.layers.isEmpty)
+                }.padding(.horizontal)
                 HStack {
                     PhotosPicker(selection: $photo, matching: .images) {
                         Label("Foto", systemImage: "photo.badge.plus")
@@ -71,11 +81,21 @@ struct EditorView: View {
             }
             .navigationTitle("ArtCraft Offline")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink(destination: ModelSettingsView()) {
+                        Image(systemName: "gearshape")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Button("Nieuw leeg project", role: .destructive) { store.newProject() }
                     } label: { Image(systemName: "ellipsis.circle") }
                 }
+            }
+            .alert("AI-engine nog niet actief", isPresented: $showModelInfo) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("De prompt is klaar voor de Core ML image-to-image-integratie. In Instellingen kun je alvast modellen downloaden. De huidige versie bewerkt nog geen foto's met AI.")
             }
             .onChange(of: photo) { _, item in
                 Task {
