@@ -15,6 +15,9 @@ packages:
   StableDiffusion:
     url: https://github.com/apple/ml-stable-diffusion.git
     branch: main
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation.git
+    from: 0.9.19
 targets:
   ArtCraftMobileOffline:
     type: application
@@ -22,6 +25,8 @@ targets:
     dependencies:
       - package: StableDiffusion
         product: StableDiffusion
+      - package: ZIPFoundation
+        product: ZIPFoundation
     sources:
       - App
       - Models
