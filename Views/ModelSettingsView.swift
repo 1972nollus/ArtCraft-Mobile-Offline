@@ -23,7 +23,7 @@ struct ModelSettingsView: View {
                     }
                 }
                 }
-                if !showAdultModels { Text("Schakel NSFW-modellen in om Realistic Vision te tonen.").font(.footnote).foregroundStyle(.secondary) }
+                if !showAdultModels { Text("Schakel NSFW-modellen in om Realistic Vision, Deliberate v2 en ReV Animated te tonen.").font(.footnote).foregroundStyle(.secondary) }
             }
             Section("Lokale beeldmodellen") {
                 Text("Alle modellen worden op je iPhone opgeslagen. Internet is alleen nodig om ze te downloaden.")
@@ -77,7 +77,7 @@ struct ModelSettingsView: View {
                 DisclosureGroup("Compatibiliteit", isExpanded: $compatibilityExpanded) {
                 Text("Voor beeldgeneratie is een volledige Core ML Stable Diffusion-pipeline nodig. Een ZIP downloaden betekent niet dat het model al geladen kan worden. GGUF-taalmodellen en losse .safetensors-checkpoints werken niet in deze Core ML-engine.")
                     .font(.footnote)
-                Text("Realistic Vision v2.0 is beschikbaar als NSFW-capabele Core ML-modelpreset. Het model heeft geen ingebouwde safety checker. De NSFW-schakelaar bepaalt alleen of deze preset in de catalogus zichtbaar is.")
+                Text("Realistic Vision v2.0, Deliberate v2 en ReV Animated zijn Core ML-modelpresets. De modellen zijn niet allemaal op deze iPhone getest. De NSFW-schakelaar bepaalt alleen welke presets zichtbaar zijn; het is geen inhoudsfilter.")
                     .font(.footnote)
                 }
             }
