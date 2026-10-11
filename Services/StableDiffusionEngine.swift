@@ -1,6 +1,8 @@
 import Foundation
 import UIKit
 import StableDiffusion
+import CoreML
+import CoreGraphics
 
 @MainActor
 final class StableDiffusionEngine: ObservableObject {
@@ -66,7 +68,39 @@ final class StableDiffusionEngine: ObservableObject {
                 configuration.seed = UInt32.random(in: 0...UInt32.max)
                 configuration.stepCount = 20
                 if let startingImage {
-                    configuration.startingImage = startingImage
+                    let encoderURL = folder.appendingPathComponent("VAEEncoder.mlmodelc")
+                    let encoderConfig = MLModelConfiguration()
+                    encoderConfig.computeUnits = .cpuOnly
+                    let vae = try MLModel(contentsOf: encoderURL, configuration: encoderConfig)
+                    guard let input = vae.modelDescription.inputDescriptionsByName.values.first,
+                          let shape = input.multiArrayConstraint?.shape.map({ $0.intValue }),
+                          shape.count == 4, shape[1] == 3,
+                          shape[2] > 0, shape[3] > 0 else {
+                        throw NSError(domain: "ArtCraftOffline", code: 201,
+                                      userInfo: [NSLocalizedDescriptionKey: "VAE-encoder heeft geen herkenbare invoerafmetingen."])
+                    }
+                    let width = shape[3], height = shape[2]
+                    guard let ctx = CGContext(data: nil, width: width, height: height,
+                                              bitsPerComponent: 8, bytesPerRow: 0,
+                                              space: CGColorSpaceCreateDeviceRGB(),
+                                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+                        throw NSError(domain: "ArtCraftOffline", code: 202,
+                                      userInfo: [NSLocalizedDescriptionKey: "Kon bronfoto niet voorbereiden."])
+                    }
+                    ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+                    ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+                    let scale = min(CGFloat(width) / CGFloat(startingImage.width),
+                                    CGFloat(height) / CGFloat(startingImage.height))
+                    let targetW = CGFloat(startingImage.width) * scale
+                    let targetH = CGFloat(startingImage.height) * scale
+                    ctx.draw(startingImage, in: CGRect(x: (CGFloat(width) - targetW) / 2,
+                                                       y: (CGFloat(height) - targetH) / 2,
+                                                       width: targetW, height: targetH))
+                    guard let resized = ctx.makeImage() else {
+                        throw NSError(domain: "ArtCraftOffline", code: 203,
+                                      userInfo: [NSLocalizedDescriptionKey: "Kon bronfoto niet schalen."])
+                    }
+                    configuration.startingImage = resized
                     configuration.strength = Float(max(0.1, min(0.9, strength)))
                 }
                 let images = try pipeline.generateImages(configuration: configuration) { progress in
