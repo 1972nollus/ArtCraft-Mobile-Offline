@@ -72,12 +72,26 @@ final class StableDiffusionEngine: ObservableObject {
                     let encoderConfig = MLModelConfiguration()
                     encoderConfig.computeUnits = .cpuOnly
                     let vae = try MLModel(contentsOf: encoderURL, configuration: encoderConfig)
-                    guard let input = vae.modelDescription.inputDescriptionsByName.values.first,
-                          let shape = input.multiArrayConstraint?.shape.map({ $0.intValue }),
-                          shape.count == 4, shape[1] == 3,
-                          shape[2] > 0, shape[3] > 0 else {
+                    // Apple's encoder expects planar RGB shaped [1, 3, H, W].
+                    // Do not assume the first Core ML input is the RGB tensor:
+                    // some converted VAEs expose extra conditioning inputs.
+                    let descriptions = vae.modelDescription.inputDescriptionsByName
+                    let shapes = descriptions.values.compactMap { feature -> [Int]? in
+                        guard feature.type == .multiArray,
+                              let constraint = feature.multiArrayConstraint else { return nil }
+                        return constraint.shape.map { $0.intValue }
+                    }
+                    let rgbShape = shapes.first(where: {
+                        $0.count == 4 && $0[1] == 3 && $0[2] > 0 && $0[3] > 0
+                    })
+                    guard let shape = rgbShape else {
+                        let detected = descriptions.map { key, feature in
+                            let dims = feature.multiArrayConstraint?.shape.map { $0.intValue }
+                            return key + ":" + (dims.map(String.init(describing:)) ?? String(describing: feature.type))
+                        }.joined(separator: " | ")
                         throw NSError(domain: "ArtCraftOffline", code: 201,
-                                      userInfo: [NSLocalizedDescriptionKey: "VAE-encoder heeft geen herkenbare invoerafmetingen."])
+                                      userInfo: [NSLocalizedDescriptionKey:
+                                        "Core ML VAE-invoer niet herkend: " + detected])
                     }
                     let width = shape[3], height = shape[2]
                     guard let ctx = CGContext(data: nil, width: width, height: height,
