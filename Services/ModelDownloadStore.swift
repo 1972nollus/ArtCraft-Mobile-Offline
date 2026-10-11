@@ -24,6 +24,11 @@ final class ModelDownloadStore: ObservableObject {
         scan()
         let proxy = BackgroundModelDownloadDelegate()
         self.proxy = proxy
+        proxy.backgroundEventsDone = {
+            let completion = BackgroundSessionBridge.completionHandler
+            BackgroundSessionBridge.completionHandler = nil
+            completion?()
+        }
         proxy.progressHandler = { [weak self] progress in
             Task { @MainActor in self?.progress = progress }
         }
@@ -109,7 +114,7 @@ final class ModelDownloadStore: ObservableObject {
         guard !downloading else { status = "Wacht op de lopende download."; return }
         let access = url.startAccessingSecurityScopedResource()
         let directory = modelDirectory
-        let staging = directory.appendingPathComponent("Picked-" + UUID().uuidString)
+        let staging = directory.appendingPathComponent("Picked-" + UUID().uuidString, isDirectory: url.hasDirectoryPath)
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
             if url.hasDirectoryPath {
