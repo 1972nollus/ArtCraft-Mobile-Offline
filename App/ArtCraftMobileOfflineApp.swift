@@ -9,7 +9,7 @@ final class ArtCraftAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      handleEventsForBackgroundURLSession identifier: String,
                      completionHandler: @escaping () -> Void) {
-        guard identifier == ModelDownloadStore.backgroundID else {
+        guard identifier == "nl.artcraftmobile.offline.background-models" else {
             completionHandler()
             return
         }
