@@ -359,12 +359,7 @@ struct EditorView: View {
                             .opacity(layer.opacity)
                             .position(x: proxy.size.width * layer.x, y: proxy.size.height * layer.y)
                             .onTapGesture { store.selectedLayerID = layer.id }
-                            .gesture(DragGesture(minimumDistance: 2).onChanged { value in
-                                store.update(layer.id) { item in
-                                    item.x = min(1, max(0, item.x + value.translation.width / max(proxy.size.width, 1) * 0.02))
-                                    item.y = min(1, max(0, item.y + value.translation.height / max(proxy.size.height, 1) * 0.02))
-                                }
-                            })
+
                     }
                 }
             }
