@@ -1,3 +1,4 @@
+import ZIPFoundation
 import Foundation
 import Combine
 
@@ -57,6 +58,26 @@ final class ModelDownloadStore: ObservableObject {
                     let target = self.modelDirectory.appendingPathComponent(name)
                     if FileManager.default.fileExists(atPath: target.path) { try FileManager.default.removeItem(at: target) }
                     try FileManager.default.moveItem(at: temporary, to: target)
+                    if target.pathExtension.lowercased() == "zip" {
+                        let unpack = self.modelDirectory.appendingPathComponent("Unpacked", isDirectory: true)
+                        if FileManager.default.fileExists(atPath: unpack.path) {
+                            try FileManager.default.removeItem(at: unpack)
+                        }
+                        try FileManager.default.createDirectory(at: unpack, withIntermediateDirectories: true)
+                        try FileManager.default.unzipItem(at: target, to: unpack)
+                        let resources = self.findResources(in: unpack)
+                        if let resources {
+                            let destination = self.modelDirectory.appendingPathComponent("Resources", isDirectory: true)
+                            if FileManager.default.fileExists(atPath: destination.path) {
+                                try FileManager.default.removeItem(at: destination)
+                            }
+                            try FileManager.default.copyItem(at: resources, to: destination)
+                            self.status = "Core ML Resources uitgepakt."
+                        } else {
+                            self.status = "ZIP uitgepakt, maar geen volledige gecompileerde Core ML Resources-map gevonden."
+                        }
+                        try FileManager.default.removeItem(at: unpack)
+                    }
                     self.selectedModel = name
                     self.status = "Opgeslagen: \(name). Nog niet geactiveerd voor generatie."
                 } catch { self.status = "Opslagfout: \(error.localizedDescription)" }
@@ -66,6 +87,19 @@ final class ModelDownloadStore: ObservableObject {
         self.session = session
         task = session.downloadTask(with: url)
         task?.resume()
+    }
+
+    private func findResources(in folder: URL) -> URL? {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: folder.appendingPathComponent("TextEncoder.mlmodelc").path) {
+            return folder
+        }
+        guard let entries = try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.isDirectoryKey]) else { return nil }
+        for entry in entries {
+            if (try? entry.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true,
+               let found = findResources(in: entry) { return found }
+        }
+        return nil
     }
 
     func cancel() { task?.cancel() }
