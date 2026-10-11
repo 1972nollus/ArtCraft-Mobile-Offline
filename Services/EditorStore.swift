@@ -23,6 +23,25 @@ import UIKit
             project.layers.append(layer); selectedLayerID = layer.id; save()
         } catch { errorMessage = error.localizedDescription }
     }
+    func addGeneratedImage(_ data: Data) {
+        guard let image = UIImage(data: data), let png = image.pngData() else {
+            errorMessage = "AI-afbeelding kon niet worden gelezen."; return
+        }
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let filename = UUID().uuidString + ".png"
+            try png.write(to: folder.appendingPathComponent(filename), options: .atomic)
+            var layer = ArtLayer(name: "AI resultaat \(project.layers.count + 1)", fileName: filename)
+            layer.x = 0.5
+            layer.y = 0.5
+            layer.scale = 1.2
+            layer.opacity = 1
+            layer.rotation = 0
+            project.layers.append(layer)
+            selectedLayerID = layer.id
+            save()
+        } catch { errorMessage = error.localizedDescription }
+    }
     func update(_ id: UUID, _ change: (inout ArtLayer) -> Void) {
         guard let index = project.layers.firstIndex(where: { $0.id == id }) else { return }
         change(&project.layers[index]); save()
