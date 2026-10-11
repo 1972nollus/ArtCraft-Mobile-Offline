@@ -12,8 +12,9 @@ struct EditorView: View {
     @State private var exportImage: UIImage?
     @State private var shareVisible = false
     @State private var prompt = ""
-    @State private var editExistingPhoto = false
-    @State private var editStrength = 0.4
+    @AppStorage("editorMode") private var editorMode = "Nieuw beeld"
+    @State private var editStrength = 0.2
+    @State private var sceneStrength = 0.65
     @AppStorage("generationStyle") private var generationStyle = "Realistisch"
     @AppStorage("preserveFace") private var preserveFace = true
     @AppStorage("preserveExpression") private var preserveExpression = true
@@ -76,34 +77,54 @@ struct EditorView: View {
                 }
                 .frame(maxWidth: .infinity)
                 }
-                HStack(spacing: 8) {
-                    TextField("Beschrijf hoe je de foto wilt aanpassen...", text: $prompt, axis: .vertical)
-                        .lineLimit(1...3)
-                        .textFieldStyle(.roundedBorder)
-                        .focused($promptFocused)
-                        .submitLabel(.done)
-                        .onSubmit { promptFocused = false }
-                    Button(engine.isGenerating ? "Bezig..." : "AI genereren") {
-                        dismissKeyboard()
-                        startGeneration()
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Bewerkmodus").font(.headline)
+                    Picker("Bewerkmodus", selection: $editorMode) {
+                        Text("Nieuw beeld").tag("Nieuw beeld")
+                        Text("Subtiel aanpassen").tag("Subtiel aanpassen")
+                        Text("Gebied bewerken (Inpaint)").tag("Inpaint")
+                        Text("Nieuwe scène").tag("Nieuwe scène")
+                    }.pickerStyle(.menu)
+                    .onChange(of: editorMode) { _, _ in
+                        engine.generatedImage = nil
+                        originalForComparison = nil
                     }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(engine.isGenerating || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }.padding(.horizontal)
-                if !store.project.layers.isEmpty {
+                HStack(spacing: 8) {
+                    TextField(promptPlaceholder, text: $prompt, axis: .vertical)
+                        .lineLimit(1...3).textFieldStyle(.roundedBorder)
+                        .focused($promptFocused).submitLabel(.done)
+                        .onSubmit { promptFocused = false }
+                    Button(engine.isGenerating ? "Bezig..." : "AI genereren") { startGeneration() }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(engine.isGenerating || editorMode == "Inpaint" || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }.padding(.horizontal)
+                if editorMode == "Subtiel aanpassen" && !store.project.layers.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Toggle("Bewerk bestaande foto (image-to-image)", isOn: $editExistingPhoto)
-                        if editExistingPhoto {
-                            HStack {
-                                Text("Aanpassingssterkte")
-                                Slider(value: $editStrength, in: 0.1...0.9, step: 0.05)
-                                Text("\(Int(editStrength * 100))%").monospacedDigit()
-                            }
-                            Text("Lager behoudt doorgaans meer van de bronfoto. Gezichtsbehoud is niet gegarandeerd.")
-                                .font(.caption2).foregroundStyle(.secondary)
+                        HStack {
+                            Text("Aanpassingssterkte")
+                            Slider(value: $editStrength, in: 0.1...0.5, step: 0.05)
+                            Text("\(Int(editStrength * 100))%").monospacedDigit()
                         }
-                    }
-                    .padding(.horizontal)
+                        Text("Lager verandert minder van het origineel. Gezichtsbehoud is niet gegarandeerd.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }.padding(.horizontal)
+                } else if editorMode == "Nieuwe scène" {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Scènewijziging")
+                            Slider(value: $sceneStrength, in: 0.3...0.9, step: 0.05)
+                            Text("\(Int(sceneStrength * 100))%").monospacedDigit()
+                        }
+                        Text("Experimenteel: je gezicht kan veranderen. Echt identiteitsbehoud vraagt een face-reference-model.")
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }.padding(.horizontal)
+                } else if editorMode == "Inpaint" {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Maskerbewerking is nog in ontwikkeling", systemImage: "paintbrush.pointed")
+                        Text("Het penseel en lokaal genereren volgen later. De AI-knop is in deze modus uitgeschakeld.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.padding(.horizontal)
                 }
                 HStack(spacing: 12) {
                     Picker("Stijl", selection: $generationStyle) {
@@ -116,7 +137,7 @@ struct EditorView: View {
                     Spacer()
                 }
                 .padding(.horizontal)
-                if !store.project.layers.isEmpty {
+                if !store.project.layers.isEmpty && editorMode != "Nieuw beeld" && editorMode != "Inpaint" {
                     VStack(alignment: .leading, spacing: 6) {
                         Toggle("Behoud gezicht", isOn: $preserveFace)
                         Toggle("Behoud gezichtsuitdrukking", isOn: $preserveExpression)
@@ -284,15 +305,15 @@ struct EditorView: View {
     private func startGeneration() {
         dismissKeyboard()
         let original = selectedUIImage()
-        guard !editExistingPhoto || original != nil else {
+        guard editorMode == "Nieuw beeld" || original != nil else {
             store.errorMessage = "Kies eerst een bestaande foto voor image-to-image."
             return
         }
         originalForComparison = original
         Task {
             await engine.generate(prompt: effectivePrompt,
-                                  startingImage: editExistingPhoto ? selectedInputImage() : nil,
-                                  strength: editStrength)
+                                  startingImage: editorMode == "Nieuw beeld" ? nil : selectedInputImage(),
+                                  strength: editorMode == "Nieuwe scène" ? sceneStrength : editStrength)
         }
     }
 
@@ -326,6 +347,15 @@ struct EditorView: View {
         return normalized.cgImage
     }
 
+    private var promptPlaceholder: String {
+        switch editorMode {
+        case "Subtiel aanpassen": return "Bijvoorbeeld: maak alleen het haar blond"
+        case "Inpaint": return "Bijvoorbeeld: voeg hier een zonnebril toe"
+        case "Nieuwe scène": return "Bijvoorbeeld: zet deze persoon op het strand"
+        default: return "Beschrijf een nieuwe afbeelding…"
+        }
+    }
+
     private var effectivePrompt: String {
         var parts = [prompt.trimmingCharacters(in: .whitespacesAndNewlines)]
         switch generationStyle {
@@ -337,7 +367,9 @@ struct EditorView: View {
             parts.append("cinematic lighting, detailed composition, film still")
         default: break
         }
-        if !store.project.layers.isEmpty {
+        if editorMode == "Subtiel aanpassen" { parts.append("Edit the existing photo of the same subject. Only the requested small change; keep pose, clothes, background.") }
+        if editorMode == "Nieuwe scène" { parts.append("Place the person from the reference photo into the described scene. Try to preserve facial identity.") }
+        if editorMode != "Nieuw beeld" && !store.project.layers.isEmpty {
             if preserveFace { parts.append("keep the same facial identity, preserve facial features") }
             if preserveExpression { parts.append("maintain the same facial expression") }
         }
