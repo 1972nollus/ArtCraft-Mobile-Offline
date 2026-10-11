@@ -58,7 +58,6 @@ final class StableDiffusionEngine: ObservableObject {
                 if let startingImage {
                     configuration.startingImage = startingImage
                     configuration.strength = Float(max(0.1, min(0.9, strength)))
-                    configuration.mode = .imageToImage
                 }
                 let images = try pipeline.generateImages(configuration: configuration) { _ in true }
                 guard let cg = images.compactMap({ $0 }).first else {
