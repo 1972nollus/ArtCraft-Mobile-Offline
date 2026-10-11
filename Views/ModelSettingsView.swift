@@ -2,10 +2,17 @@ import SwiftUI
 
 struct ModelSettingsView: View {
     @StateObject private var models = ModelDownloadStore()
+    @AppStorage("showAdultModels") private var showAdultModels = false
+    @State private var compatibilityExpanded = false
 
     var body: some View {
         Form {
+            Section("Volwassen modellen (NSFW)") {
+                Toggle("Toon NSFW-modellen", isOn: $showAdultModels)
+                Text("Toont volwassen modellen in de catalogus. Dit is geen inhoudsfilter voor gegenereerde afbeeldingen.").font(.footnote).foregroundStyle(.secondary)
+            }
             Section("Modelcatalogus") {
+                if showAdultModels {
                 ForEach(ModelPreset.all) { preset in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(preset.title).font(.headline)
@@ -13,6 +20,8 @@ struct ModelSettingsView: View {
                         Button("Selecteer download") { models.usePreset(preset) }
                     }
                 }
+                }
+                if !showAdultModels { Text("Schakel NSFW-modellen in om Realistic Vision te tonen.").font(.footnote).foregroundStyle(.secondary) }
             }
             Section("Lokale beeldmodellen") {
                 Text("Alle modellen worden op je iPhone opgeslagen. Internet is alleen nodig om ze te downloaden.")
@@ -57,11 +66,13 @@ struct ModelSettingsView: View {
                 Text("Een gewone Unet zonder chunking wordt als risicovol voor iPhone gemarkeerd. Deze controle garandeert geen succesvolle generatie.")
                     .font(.footnote)
             }
-            Section("Compatibiliteit") {
+            Section {
+                DisclosureGroup("Compatibiliteit", isExpanded: $compatibilityExpanded) {
                 Text("Voor beeldgeneratie is een volledige Core ML Stable Diffusion-pipeline nodig. Een ZIP downloaden betekent niet dat het model al geladen kan worden. GGUF-taalmodellen en losse .safetensors-checkpoints werken niet in deze Core ML-engine.")
                     .font(.footnote)
                 Text("NSFW-capabele Stable Diffusion-modellen kunnen later worden toegevoegd als compatibele geconverteerde Core ML-pipeline. De app biedt momenteel geen geteste NSFW-modelcatalogus.")
                     .font(.footnote)
+                }
             }
         }
         .navigationTitle("AI-modellen")
