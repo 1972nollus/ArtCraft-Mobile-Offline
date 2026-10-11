@@ -37,7 +37,12 @@ struct ModelSettingsView: View {
                 ForEach(models.models, id: \.self) { name in
                     HStack {
                         Image(systemName: "externaldrive")
-                        Text(name).lineLimit(2)
+                        VStack(alignment: .leading) {
+                            Text(name).lineLimit(2)
+                            Text(models.validation(name)).font(.caption2).foregroundStyle(.secondary)
+                            Button(models.selectedModel == name ? "Actief model" : "Gebruik model") { models.activate(name) }
+                                .disabled(models.selectedModel == name)
+                        }
                         Spacer()
                         Button(role: .destructive) { models.delete(name) } label: {
                             Image(systemName: "trash")
@@ -47,8 +52,7 @@ struct ModelSettingsView: View {
             }
             Section("Modelcontrole") {
                 Button("Controleer huidige Core ML Resources") {
-                    let folder = models.modelDirectory.appendingPathComponent("Resources", isDirectory: true)
-                    models.status = CoreMLModelValidator.check(folder).details
+                    if !models.selectedModel.isEmpty { models.status = models.validation(models.selectedModel) } else { models.status = "Selecteer eerst een geïnstalleerd model." }
                 }
                 Text("Een gewone Unet zonder chunking wordt als risicovol voor iPhone gemarkeerd. Deze controle garandeert geen succesvolle generatie.")
                     .font(.footnote)
