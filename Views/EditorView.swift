@@ -15,7 +15,7 @@ struct EditorView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 10) {
-                canvas.aspectRatio(1, contentMode: .fit).padding(.horizontal, 12)
+                canvas.aspectRatio(1, contentMode: .fit).padding(.horizontal, 4)
                 HStack(spacing: 8) {
                     TextField("Beschrijf hoe je de foto wilt aanpassen...", text: $prompt, axis: .vertical)
                         .lineLimit(1...3)
@@ -158,7 +158,7 @@ struct EditorView: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
-                            .frame(width: proxy.size.width * 0.75, height: proxy.size.height * 0.75)
+                            .frame(width: proxy.size.width * 0.96, height: proxy.size.height * 0.96)
                             .scaleEffect(layer.scale)
                             .rotationEffect(.degrees(layer.rotation))
                             .opacity(layer.opacity)
