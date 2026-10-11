@@ -8,6 +8,7 @@ struct EditorView: View {
     @State private var pendingPhoto: UIImage?
     @State private var confirmPhoto = false
     @State private var fullscreenCanvas = false
+    @State private var originalForComparison: UIImage?
     @State private var exportImage: UIImage?
     @State private var shareVisible = false
     @State private var prompt = ""
@@ -24,6 +25,37 @@ struct EditorView: View {
         NavigationStack {
             ScrollView {
               VStack(spacing: 10) {
+                if let generated = engine.generatedImage {
+                    VStack(spacing: 12) {
+                        if let original = originalForComparison {
+                            BeforeAfterCompareView(original: original, generated: generated)
+                                .padding(.horizontal, 6)
+                        } else {
+                            Image(uiImage: generated)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: .infinity)
+                                .aspectRatio(1, contentMode: .fit)
+                                .padding(.horizontal, 6)
+                        }
+                        HStack(spacing: 8) {
+                            Button("Annuleer") {
+                                engine.generatedImage = nil
+                                originalForComparison = nil
+                            }.buttonStyle(.bordered)
+                            Button("Opnieuw") { startGeneration() }
+                                .buttonStyle(.bordered)
+                                .disabled(engine.isGenerating)
+                            Button("Gebruik resultaat") {
+                                if let data = generated.pngData(),
+                                   store.replaceSelectedImage(with: data) {
+                                    engine.generatedImage = nil
+                                    originalForComparison = nil
+                                }
+                            }.buttonStyle(.borderedProminent)
+                        }.font(.subheadline)
+                    }
+                } else {
                 ZStack(alignment: .topTrailing) {
                     canvas
                         .frame(width: UIScreen.main.bounds.width - 12,
@@ -43,6 +75,7 @@ struct EditorView: View {
                     .padding(12)
                 }
                 .frame(maxWidth: .infinity)
+                }
                 HStack(spacing: 8) {
                     TextField("Beschrijf hoe je de foto wilt aanpassen...", text: $prompt, axis: .vertical)
                         .lineLimit(1...3)
@@ -52,10 +85,7 @@ struct EditorView: View {
                         .onSubmit { promptFocused = false }
                     Button(engine.isGenerating ? "Bezig..." : "AI genereren") {
                         dismissKeyboard()
-                        Task {
-                            let source = editExistingPhoto ? selectedInputImage() : nil
-                            await engine.generate(prompt: effectivePrompt, startingImage: source, strength: editStrength)
-                        }
+                        startGeneration()
                     }
                         .buttonStyle(.borderedProminent)
                         .disabled(engine.isGenerating || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -121,31 +151,14 @@ struct EditorView: View {
                     Text(engine.message).font(.caption).foregroundStyle(.secondary)
                         .lineLimit(3).padding(.horizontal)
                 }
-                if let generated = engine.generatedImage {
-                    VStack(spacing: 10) {
-                        Text("AI-resultaat").font(.headline)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Image(uiImage: generated)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity, minHeight: 280, maxHeight: 420)
-                            .background(Color.white.opacity(0.07))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        Button("Voeg toe als laag") {
-                            if let data = generated.pngData() {
-                                store.addGeneratedImage(data)
-                                engine.generatedImage = nil
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                    }.padding(.horizontal)
-                }
                 HStack {
                     PhotosPicker(selection: $photo, matching: .images) {
                         Label("Kies foto", systemImage: "photo.badge.plus")
                     }
+                    if store.project.layers.count > 1 {
                     Button { store.moveSelected(-1) } label: { Image(systemName: "arrow.down.to.line") }
                     Button { store.moveSelected(1) } label: { Image(systemName: "arrow.up.to.line") }
+                    }
                     Button(role: .destructive) { store.deleteSelected() } label: { Image(systemName: "trash") }
                     Spacer()
                     Button {
@@ -156,7 +169,7 @@ struct EditorView: View {
                 .buttonStyle(.bordered)
                 .padding(.horizontal)
 
-                if let id = store.selectedLayerID,
+                if engine.generatedImage == nil, let id = store.selectedLayerID,
                    let layer = store.project.layers.first(where: { $0.id == id }) {
                     VStack(alignment: .leading) {
                         Text("Laag: \(layer.name)").font(.headline)
@@ -178,6 +191,7 @@ struct EditorView: View {
                     }.padding(.horizontal)
                 }
 
+                if engine.generatedImage == nil && store.project.layers.count > 1 {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Lagen").font(.headline)
                         ForEach(Array(store.project.layers.reversed())) { layer in
@@ -195,6 +209,7 @@ struct EditorView: View {
                             .onTapGesture { store.selectedLayerID = layer.id }
                         }
                 }.padding(.horizontal)
+                }
               }
             }
             .scrollDismissesKeyboard(.interactively)
@@ -286,6 +301,27 @@ struct EditorView: View {
                 Text(store.errorMessage ?? "")
             }
         }
+    }
+
+    private func startGeneration() {
+        dismissKeyboard()
+        let original = selectedUIImage()
+        guard !editExistingPhoto || original != nil else {
+            store.errorMessage = "Kies eerst een bestaande foto voor image-to-image."
+            return
+        }
+        originalForComparison = original
+        Task {
+            await engine.generate(prompt: effectivePrompt,
+                                  startingImage: editExistingPhoto ? selectedInputImage() : nil,
+                                  strength: editStrength)
+        }
+    }
+
+    private func selectedUIImage() -> UIImage? {
+        guard let layer = store.project.layers.first(where: { $0.id == store.selectedLayerID })
+                ?? store.project.layers.last else { return nil }
+        return store.image(for: layer)
     }
 
     private func dismissKeyboard() {
