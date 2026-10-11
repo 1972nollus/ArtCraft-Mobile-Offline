@@ -11,7 +11,19 @@ struct ModelPreset: Identifiable {
         url: "https://huggingface.co/coreml-community/coreml-realisticVision-v20/resolve/main/split_einsum/realisticVision-v20_split-einsum.zip",
         note: "1,98 GB · Core ML · geen chunked UNet. iPhone 14-compatibiliteit onzeker."
     )
-    static let all: [ModelPreset] = [.realisticVision]
+    static let deliberateV2 = ModelPreset(
+        id: "deliberate-v2",
+        title: "Deliberate v2 · split-einsum",
+        url: "https://huggingface.co/coreml-community/coreml-Deliberate/resolve/main/split-einsum/Deliberate_v2_split-einsum.zip",
+        note: "1,97 GB · Core ML · NSFW-capabel. Nog niet op iPhone 14 getest."
+    )
+    static let revAnimated = ModelPreset(
+        id: "rev-animated-v122",
+        title: "ReV Animated v1.22 · split-einsum",
+        url: "https://huggingface.co/coreml-community/coreml-ReV-Animated/resolve/main/split-einsum/revAnimated-v122_split-einsum.zip",
+        note: "2,53 GB · Core ML · realistisch / semi-realistisch. Nog niet op iPhone 14 getest."
+    )
+    static let all: [ModelPreset] = [.realisticVision, .deliberateV2, .revAnimated]
 }
 
 enum CoreMLModelValidator {
