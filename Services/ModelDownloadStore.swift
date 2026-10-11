@@ -76,14 +76,14 @@ final class ModelDownloadStore: ObservableObject {
                                 try FileManager.default.removeItem(at: destination)
                             }
                             try FileManager.default.copyItem(at: resources, to: destination)
-                            self.status = "Core ML Resources uitgepakt."
+                            self.status = CoreMLModelValidator.check(destination).details
                         } else {
                             self.status = "ZIP uitgepakt, maar geen volledige gecompileerde Core ML Resources-map gevonden."
                         }
                         try FileManager.default.removeItem(at: unpack)
                     }
                     self.selectedModel = name
-                    self.status = "Opgeslagen: \(name). Nog niet geactiveerd voor generatie."
+                    if target.pathExtension.lowercased() != "zip" { self.status = "Bestand opgeslagen, nog niet geïnstalleerd." }
                 } catch { self.status = "Opslagfout: \(error.localizedDescription)" }
             }
         }
