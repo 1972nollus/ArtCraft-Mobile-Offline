@@ -8,6 +8,7 @@ struct EditorView: View {
     @State private var exportImage: UIImage?
     @State private var shareVisible = false
     @State private var prompt = ""
+    @FocusState private var promptFocused: Bool
     @StateObject private var engine = StableDiffusionEngine()
     @State private var showModelInfo = false
 
@@ -19,7 +20,11 @@ struct EditorView: View {
                     TextField("Beschrijf hoe je de foto wilt aanpassen...", text: $prompt, axis: .vertical)
                         .lineLimit(1...3)
                         .textFieldStyle(.roundedBorder)
+                        .focused($promptFocused)
+                        .submitLabel(.done)
+                        .onSubmit { promptFocused = false }
                     Button(engine.isGenerating ? "Bezig..." : "AI genereren") {
+                        promptFocused = false
                         Task { await engine.generate(prompt: prompt) }
                     }
                         .buttonStyle(.borderedProminent)
