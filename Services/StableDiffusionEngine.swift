@@ -45,7 +45,10 @@ final class StableDiffusionEngine: ObservableObject {
                 let pipeline = try StableDiffusionPipeline(resourcesAt: folder, controlNet: [], reduceMemory: true)
                 try pipeline.loadResources()
                 defer { pipeline.unloadResources() }
-                let images = try pipeline.generateImages(prompt: prompt, seed: UInt32.random(in: 0...UInt32.max))
+                var configuration = StableDiffusionPipeline.Configuration(prompt: prompt)
+                configuration.seed = UInt32.random(in: 0...UInt32.max)
+                configuration.stepCount = 20
+                let images = try pipeline.generateImages(configuration: configuration) { _ in true }
                 guard let cg = images.compactMap({ $0 }).first else {
                     throw NSError(domain: "ArtCraftOffline", code: 1,
                                   userInfo: [NSLocalizedDescriptionKey: "Geen afbeelding gegenereerd."])
