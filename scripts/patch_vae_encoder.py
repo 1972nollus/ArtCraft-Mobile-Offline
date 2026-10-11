@@ -26,5 +26,6 @@ new = """model.modelDescription.inputDescriptionsByName.values.first(where: { de
 if old not in source:
     sys.exit("Upstream Encoder.inputDescription changed; manual review required")
 source = source.replace(old, new, 1)
+file.chmod(file.stat().st_mode | 0o200)
 file.write_text(source)
 print(f"Patched Apple VAE encoder RGB input selection: {file}")
