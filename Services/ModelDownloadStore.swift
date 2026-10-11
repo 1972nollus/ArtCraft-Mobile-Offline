@@ -42,10 +42,9 @@ final class ModelDownloadStore: ObservableObject {
 
     func scan() {
         try? FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
-        models = (try? FileManager.default.contentsOfDirectory(at: modelDirectory, includingPropertiesForKeys: nil))?
-            .filter { ["mlpackage", "mlmodelc", "zip"].contains($0.pathExtension.lowercased()) }
-            .map(\.lastPathComponent).sorted() ?? []
-        if !models.contains(selectedModel) { selectedModel = models.first ?? "" }
+        let root = modelDirectory.appendingPathComponent("Installed", isDirectory: true)
+        models = ((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: [.isDirectoryKey])) ?? []).filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }.map { $0.lastPathComponent }.sorted()
+        if !models.contains(selectedModel) { selectedModel = ""; UserDefaults.standard.removeObject(forKey: "activeCoreMLModel") }
     }
 
     func download() {
