@@ -12,9 +12,14 @@ jobs:
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
+      - name: Resolve Swift packages
+        run: |
+          xcodebuild -resolvePackageDependencies -project ArtCraftMobileOffline.xcodeproj -scheme ArtCraftMobileOffline -clonedSourcePackagesDirPath build/SourcePackages
+      - name: Fix Apple image-to-image VAE encoder
+        run: python3 scripts/patch_vae_encoder.py
       - name: Build unsigned iOS app
         run: |
-          xcodebuild -project ArtCraftMobileOffline.xcodeproj -scheme ArtCraftMobileOffline -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          xcodebuild -project ArtCraftMobileOffline.xcodeproj -scheme ArtCraftMobileOffline -configuration Release -sdk iphoneos -derivedDataPath build -clonedSourcePackagesDirPath build/SourcePackages CODE_SIGNING_ALLOWED=NO build
       - name: Package unsigned IPA
         run: |
           mkdir -p Payload
