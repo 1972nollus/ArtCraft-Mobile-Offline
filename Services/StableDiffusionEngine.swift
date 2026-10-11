@@ -36,9 +36,13 @@ final class StableDiffusionEngine: ObservableObject {
         return report.isComplete ? nil : report.details
     }
 
-    func generate(prompt: String) async {
+    func generate(prompt: String, startingImage: CGImage? = nil, strength: Double = 0.45) async {
         guard !isGenerating else { return }
         if let error = validateResources() { message = error; return }
+        if startingImage != nil && !FileManager.default.fileExists(atPath: resourceFolder().appendingPathComponent("VAEEncoder.mlmodelc").path) {
+            message = "Image-to-image vereist VAEEncoder.mlmodelc in het model."
+            return
+        }
         isGenerating = true
         generatedImage = nil
         message = "Core ML-pipeline laden..."
@@ -51,6 +55,11 @@ final class StableDiffusionEngine: ObservableObject {
                 var configuration = StableDiffusionPipeline.Configuration(prompt: prompt)
                 configuration.seed = UInt32.random(in: 0...UInt32.max)
                 configuration.stepCount = 20
+                if let startingImage {
+                    configuration.startingImage = startingImage
+                    configuration.strength = Float(max(0.1, min(0.9, strength)))
+                    configuration.mode = .imageToImage
+                }
                 let images = try pipeline.generateImages(configuration: configuration) { _ in true }
                 guard let cg = images.compactMap({ $0 }).first else {
                     throw NSError(domain: "ArtCraftOffline", code: 1,
@@ -59,7 +68,7 @@ final class StableDiffusionEngine: ObservableObject {
                 return UIImage(cgImage: cg)
             }.value
             generatedImage = image
-            message = "Gegenereerd. Je kunt de afbeelding als laag toevoegen."
+            message = startingImage == nil ? "Nieuwe afbeelding gegenereerd." : "Foto bewerkt. Voeg het resultaat toe als laag."
         } catch { message = "Core ML: \(error.localizedDescription)" }
         isGenerating = false
     }
