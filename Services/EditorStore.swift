@@ -42,6 +42,38 @@ import UIKit
             save()
         } catch { errorMessage = error.localizedDescription }
     }
+    @discardableResult
+    func replaceSelectedImage(with data: Data) -> Bool {
+        guard let image = UIImage(data: data), let png = image.pngData() else {
+            errorMessage = "AI-resultaat kon niet worden gelezen."
+            return false
+        }
+        let id = selectedLayerID ?? project.layers.last?.id
+        guard let id, let index = project.layers.firstIndex(where: { $0.id == id }) else {
+            addGeneratedImage(data)
+            return errorMessage == nil
+        }
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let filename = UUID().uuidString + ".png"
+            try png.write(to: folder.appendingPathComponent(filename), options: .atomic)
+            let oldFilename = project.layers[index].fileName
+            project.layers[index].fileName = filename
+            project.layers[index].name = "Bewerkte foto"
+            project.layers[index].scale = 1
+            project.layers[index].x = 0.5
+            project.layers[index].y = 0.5
+            project.layers[index].opacity = 1
+            project.layers[index].rotation = 0
+            project.layers[index].isVisible = true
+            save()
+            try? FileManager.default.removeItem(at: folder.appendingPathComponent(oldFilename))
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
     func update(_ id: UUID, _ change: (inout ArtLayer) -> Void) {
         guard let index = project.layers.firstIndex(where: { $0.id == id }) else { return }
         change(&project.layers[index]); save()
