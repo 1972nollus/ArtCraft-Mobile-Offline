@@ -8,6 +8,9 @@ struct EditorView: View {
     @State private var exportImage: UIImage?
     @State private var shareVisible = false
     @State private var prompt = ""
+    @AppStorage("generationStyle") private var generationStyle = "Realistisch"
+    @AppStorage("preserveFace") private var preserveFace = true
+    @AppStorage("preserveExpression") private var preserveExpression = true
     @FocusState private var promptFocused: Bool
     @StateObject private var engine = StableDiffusionEngine()
     @State private var showModelInfo = false
@@ -26,11 +29,32 @@ struct EditorView: View {
                     Button(engine.isGenerating ? "Bezig..." : "AI genereren") {
                         promptFocused = false
                         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                        Task { await engine.generate(prompt: prompt) }
+                        Task { await engine.generate(prompt: effectivePrompt) }
                     }
                         .buttonStyle(.borderedProminent)
                         .disabled(engine.isGenerating || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }.padding(.horizontal)
+                HStack(spacing: 12) {
+                    Picker("Stijl", selection: $generationStyle) {
+                        Text("Standaard").tag("Standaard")
+                        Text("Realistisch").tag("Realistisch")
+                        Text("Illustratie").tag("Illustratie")
+                        Text("Cinematisch").tag("Cinematisch")
+                    }
+                    .pickerStyle(.menu)
+                    Spacer()
+                }
+                .padding(.horizontal)
+                if !store.project.layers.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle("Behoud gezicht", isOn: $preserveFace)
+                        Toggle("Behoud gezichtsuitdrukking", isOn: $preserveExpression)
+                        Text("Deze opties sturen voorlopig alleen de tekstprompt. Voor echt behoud van de originele persoon is image-to-image/inpainting nodig.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal)
+                }
                 if !engine.message.isEmpty {
                     Text(engine.message).font(.caption).foregroundStyle(.secondary)
                         .lineLimit(3).padding(.horizontal)
@@ -147,6 +171,24 @@ struct EditorView: View {
                 Text(store.errorMessage ?? "")
             }
         }
+    }
+
+    private var effectivePrompt: String {
+        var parts = [prompt.trimmingCharacters(in: .whitespacesAndNewlines)]
+        switch generationStyle {
+        case "Realistisch":
+            parts.append("photorealistic photograph, natural lighting, lifelike textures, realistic skin details, natural proportions")
+        case "Illustratie":
+            parts.append("illustration, artistic rendering, cohesive colors")
+        case "Cinematisch":
+            parts.append("cinematic lighting, detailed composition, film still")
+        default: break
+        }
+        if !store.project.layers.isEmpty {
+            if preserveFace { parts.append("keep the same facial identity, preserve facial features") }
+            if preserveExpression { parts.append("maintain the same facial expression") }
+        }
+        return parts.filter { !$0.isEmpty }.joined(separator: ", ")
     }
 
     private var canvas: some View {
