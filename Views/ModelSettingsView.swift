@@ -1,7 +1,9 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ModelSettingsView: View {
-    @StateObject private var models = ModelDownloadStore()
+    @EnvironmentObject private var models: ModelDownloadStore
+    @State private var choosingLocalFile = false
     @AppStorage("showAdultModels") private var showAdultModels = false
     @State private var compatibilityExpanded = false
 
@@ -30,6 +32,11 @@ struct ModelSettingsView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.URL)
+                Button {
+                    choosingLocalFile = true
+                } label: {
+                    Label("Kies lokaal bestand", systemImage: "folder")
+                }
                 if models.downloading {
                     ProgressView(value: models.progress)
                     Button("Annuleer download", role: .destructive) { models.cancel() }
@@ -77,5 +84,13 @@ struct ModelSettingsView: View {
         }
         .navigationTitle("AI-modellen")
         .onAppear { models.scan() }
+        .fileImporter(isPresented: $choosingLocalFile, allowedContentTypes: [.zip, .folder]) { result in
+            switch result {
+            case .success(let url):
+                models.importLocal(from: url)
+            case .failure(let error):
+                models.status = "Bestandskiezer: " + error.localizedDescription
+            }
+        }
     }
 }
