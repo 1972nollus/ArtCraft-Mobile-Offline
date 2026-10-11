@@ -53,6 +53,7 @@ final class ModelDownloadStore: ObservableObject {
             status = "Gebruik een geldige HTTPS-downloadlink."; return
         }
         let name = url.lastPathComponent.removingPercentEncoding ?? url.lastPathComponent
+        let modelID = ModelPreset.all.first(where: { $0.url == urlText })?.id ?? URL(fileURLWithPath: name).deletingPathExtension().lastPathComponent
         guard !name.isEmpty, !name.contains("/"), !name.contains("\\"),
               ["zip", "mlpackage", "mlmodelc"].contains(URL(fileURLWithPath: name).pathExtension.lowercased()) else {
             status = "Alleen Core ML modelarchieven (.zip), .mlpackage of .mlmodelc."; return
@@ -82,9 +83,11 @@ final class ModelDownloadStore: ObservableObject {
                         }
                         try FileManager.default.createDirectory(at: unpack, withIntermediateDirectories: true)
                         try FileManager.default.unzipItem(at: target, to: unpack)
-                        let resources = self.findResources(in: unpack)
+                        let resources = CoreMLModelValidator.findResources(in: unpack)
                         if let resources {
-                            let destination = self.modelDirectory.appendingPathComponent("Resources", isDirectory: true)
+                            let parent = self.modelDirectory.appendingPathComponent("Installed").appendingPathComponent(modelID)
+                            try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+                            let destination = parent.appendingPathComponent("Resources", isDirectory: true)
                             if FileManager.default.fileExists(atPath: destination.path) {
                                 try FileManager.default.removeItem(at: destination)
                             }
@@ -123,7 +126,7 @@ final class ModelDownloadStore: ObservableObject {
 
     func delete(_ name: String) {
         guard models.contains(name) else { return }
-        try? FileManager.default.removeItem(at: modelDirectory.appendingPathComponent(name))
+        try? FileManager.default.removeItem(at: modelDirectory.appendingPathComponent("Installed").appendingPathComponent(name))
         scan()
     }
 }
