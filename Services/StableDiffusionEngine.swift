@@ -42,7 +42,7 @@ final class StableDiffusionEngine: ObservableObject {
         do {
             let folder = resourceFolder()
             let image = try await Task.detached(priority: .userInitiated) {
-                let pipeline = try StableDiffusionPipeline(resourcesAt: folder, reduceMemory: true)
+                let pipeline = try StableDiffusionPipeline(resourcesAt: folder, controlNet: [], reduceMemory: true)
                 try pipeline.loadResources()
                 defer { pipeline.unloadResources() }
                 let images = try pipeline.generateImages(prompt: prompt, seed: UInt32.random(in: 0...UInt32.max))
