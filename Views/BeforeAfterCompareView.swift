@@ -19,8 +19,12 @@ struct BeforeAfterCompareView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(width: width, height: height)
-                    .mask(alignment: .leading) {
-                        Rectangle().frame(width: width * fraction)
+                    .mask {
+                        HStack(spacing: 0) {
+                            Rectangle().frame(width: width * fraction)
+                            Spacer(minLength: 0)
+                        }
+                        .frame(width: width, height: height)
                     }
 
                 Rectangle()
@@ -36,9 +40,12 @@ struct BeforeAfterCompareView: View {
                     .position(x: width * fraction, y: height / 2)
             }
             .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { value in
-                fraction = min(1, max(0, value.location.x / max(width, 1)))
-            })
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                    .onChanged { value in
+                        fraction = min(1, max(0, value.location.x / max(width, 1)))
+                    }
+            )
             .overlay(alignment: .topLeading) {
                 Text("NA")
                     .font(.caption.bold())
