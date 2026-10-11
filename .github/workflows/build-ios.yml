@@ -1,0 +1,26 @@
+name: Build iOS IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Build unsigned iOS app
+        run: |
+          xcodebuild -project ArtCraftMobileOffline.xcodeproj -scheme ArtCraftMobileOffline -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/ArtCraftMobileOffline.app Payload/
+          zip -qr ArtCraftMobileOffline-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArtCraftMobileOffline-unsigned-IPA
+          path: ArtCraftMobileOffline-unsigned.ipa
