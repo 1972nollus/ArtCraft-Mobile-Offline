@@ -25,6 +25,7 @@ struct EditorView: View {
                         .onSubmit { promptFocused = false }
                     Button(engine.isGenerating ? "Bezig..." : "AI genereren") {
                         promptFocused = false
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                         Task { await engine.generate(prompt: prompt) }
                     }
                         .buttonStyle(.borderedProminent)
@@ -35,12 +36,23 @@ struct EditorView: View {
                         .lineLimit(3).padding(.horizontal)
                 }
                 if let generated = engine.generatedImage {
-                    Button("Voeg AI-afbeelding toe als laag") {
-                        if let data = generated.pngData() {
-                            store.addImage(data)
-                            engine.generatedImage = nil
+                    VStack(spacing: 10) {
+                        Text("AI-resultaat").font(.headline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Image(uiImage: generated)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity, maxHeight: 220)
+                            .background(Color.white.opacity(0.07))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        Button("Voeg toe als laag") {
+                            if let data = generated.pngData() {
+                                store.addGeneratedImage(data)
+                                engine.generatedImage = nil
+                            }
                         }
-                    }.buttonStyle(.borderedProminent)
+                        .buttonStyle(.borderedProminent)
+                    }.padding(.horizontal)
                 }
                 HStack {
                     PhotosPicker(selection: $photo, matching: .images) {
