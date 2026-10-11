@@ -7,6 +7,11 @@ final class StableDiffusionEngine: ObservableObject {
     @Published var isGenerating = false
     @Published var message = ""
     @Published var generatedImage: UIImage?
+    @Published var progress: Double = 0
+    @Published var currentStep = 0
+    @Published var totalSteps = 20
+    @Published var elapsedSeconds: TimeInterval = 0
+    @Published var remainingSeconds: TimeInterval?
 
     func resourceFolder() -> URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -44,6 +49,11 @@ final class StableDiffusionEngine: ObservableObject {
             return
         }
         isGenerating = true
+        progress = 0
+        currentStep = 0
+        remainingSeconds = nil
+        elapsedSeconds = 0
+        let startTime = Date()
         generatedImage = nil
         message = "Core ML-pipeline laden..."
         do {
@@ -59,7 +69,21 @@ final class StableDiffusionEngine: ObservableObject {
                     configuration.startingImage = startingImage
                     configuration.strength = Float(max(0.1, min(0.9, strength)))
                 }
-                let images = try pipeline.generateImages(configuration: configuration) { _ in true }
+                let images = try pipeline.generateImages(configuration: configuration) { progress in
+                    let step = progress.step + 1
+                    let count = max(configuration.stepCount, 1)
+                    let seconds = Date().timeIntervalSince(startTime)
+                    Task { @MainActor [weak self] in
+                        guard let self else { return }
+                        self.currentStep = min(step, count)
+                        self.totalSteps = count
+                        self.progress = min(1, Double(step) / Double(count))
+                        self.elapsedSeconds = seconds
+                        self.remainingSeconds = step > 0 ? seconds / Double(step) * Double(max(0, count - step)) : nil
+                        self.message = "Genereren: stap \(min(step, count)) van \(count)"
+                    }
+                    return true
+                }
                 guard let cg = images.compactMap({ $0 }).first else {
                     throw NSError(domain: "ArtCraftOffline", code: 1,
                                   userInfo: [NSLocalizedDescriptionKey: "Geen afbeelding gegenereerd."])
@@ -69,6 +93,7 @@ final class StableDiffusionEngine: ObservableObject {
             generatedImage = image
             message = startingImage == nil ? "Nieuwe afbeelding gegenereerd." : "Foto bewerkt. Voeg het resultaat toe als laag."
         } catch { message = "Core ML: \(error.localizedDescription)" }
+        elapsedSeconds = Date().timeIntervalSince(startTime)
         isGenerating = false
     }
 }
