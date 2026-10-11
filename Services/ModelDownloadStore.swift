@@ -22,6 +22,10 @@ final class ModelDownloadStore: ObservableObject {
 
     init() { scan() }
 
+    func usePreset(_ preset: ModelPreset) {
+        urlText = preset.url
+    }
+
     func scan() {
         try? FileManager.default.createDirectory(at: modelDirectory, withIntermediateDirectories: true)
         models = (try? FileManager.default.contentsOfDirectory(at: modelDirectory, includingPropertiesForKeys: nil))?
