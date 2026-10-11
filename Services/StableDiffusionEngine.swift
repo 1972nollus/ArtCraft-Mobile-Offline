@@ -11,6 +11,8 @@ final class StableDiffusionEngine: ObservableObject {
     func resourceFolder() -> URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("CoreMLModels", isDirectory: true)
+            .appendingPathComponent("Installed", isDirectory: true)
+            .appendingPathComponent(UserDefaults.standard.string(forKey: "activeCoreMLModel") ?? "no-selection", isDirectory: true)
             .appendingPathComponent("Resources", isDirectory: true)
     }
 
@@ -18,7 +20,7 @@ final class StableDiffusionEngine: ObservableObject {
         let folder = resourceFolder()
         let fm = FileManager.default
         guard fm.fileExists(atPath: folder.path) else {
-            return "Geen Core ML Resources-map gevonden. Importeer een volledige gecompileerde Stable Diffusion pipeline."
+            return "Geen actief geïnstalleerd Core ML-model. Ga naar Instellingen → Modellen en selecteer een model."
         }
         for name in ["TextEncoder.mlmodelc", "VAEDecoder.mlmodelc", "vocab.json"] {
             if !fm.fileExists(atPath: folder.appendingPathComponent(name).path) { return "Ontbreekt: \(name)" }
@@ -30,7 +32,8 @@ final class StableDiffusionEngine: ObservableObject {
         let chunks = fm.fileExists(atPath: folder.appendingPathComponent("UnetChunk1.mlmodelc").path)
             && fm.fileExists(atPath: folder.appendingPathComponent("UnetChunk2.mlmodelc").path)
         if !unet && !chunks { return "Ontbreekt: Unet of UnetChunk1 + UnetChunk2." }
-        return nil
+        let report = CoreMLModelValidator.check(folder)
+        return report.isComplete ? nil : report.details
     }
 
     func generate(prompt: String) async {
