@@ -5,6 +5,15 @@ struct ModelSettingsView: View {
 
     var body: some View {
         Form {
+            Section("Modelcatalogus") {
+                ForEach(ModelPreset.all) { preset in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(preset.title).font(.headline)
+                        Text(preset.note).font(.caption).foregroundStyle(.secondary)
+                        Button("Selecteer download") { models.usePreset(preset) }
+                    }
+                }
+            }
             Section("Lokale beeldmodellen") {
                 Text("Alle modellen worden op je iPhone opgeslagen. Internet is alleen nodig om ze te downloaden.")
                     .font(.footnote)
@@ -35,6 +44,14 @@ struct ModelSettingsView: View {
                         }.buttonStyle(.borderless)
                     }
                 }
+            }
+            Section("Modelcontrole") {
+                Button("Controleer huidige Core ML Resources") {
+                    let folder = models.modelDirectory.appendingPathComponent("Resources", isDirectory: true)
+                    models.status = CoreMLModelValidator.check(folder).details
+                }
+                Text("Een gewone Unet zonder chunking wordt als risicovol voor iPhone gemarkeerd. Deze controle garandeert geen succesvolle generatie.")
+                    .font(.footnote)
             }
             Section("Compatibiliteit") {
                 Text("Voor beeldgeneratie is een volledige Core ML Stable Diffusion-pipeline nodig. Een ZIP downloaden betekent niet dat het model al geladen kan worden. GGUF-taalmodellen en losse .safetensors-checkpoints werken niet in deze Core ML-engine.")
