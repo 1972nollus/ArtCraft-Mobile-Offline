@@ -11,10 +11,17 @@ settings:
     INFOPLIST_KEY_UIApplicationSceneManifest_Generation: 'YES'
     INFOPLIST_KEY_UILaunchScreen_Generation: 'YES'
     INFOPLIST_KEY_NSPhotoLibraryUsageDescription: 'Foto’s importeren voor offline beeldbewerking.'
+packages:
+  StableDiffusion:
+    url: https://github.com/apple/ml-stable-diffusion.git
+    branch: main
 targets:
   ArtCraftMobileOffline:
     type: application
     platform: iOS
+    dependencies:
+      - package: StableDiffusion
+        product: StableDiffusion
     sources:
       - App
       - Models
