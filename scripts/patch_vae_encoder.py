@@ -26,6 +26,23 @@ new = """model.modelDescription.inputDescriptionsByName.values.first(where: { de
 if old not in source:
     sys.exit("Upstream Encoder.inputDescription changed; manual review required")
 source = source.replace(old, new, 1)
+
+# Some Core ML VAE conversions require an auxiliary 'noise' input. Provide a
+# zero-filled tensor of exactly the declared shape and dtype, so Core ML does
+# not reject prediction with "Feature noise is required but not specified".
+old_provider = "let dict = [inputName: MLMultiArray(imageData)]"
+new_provider = """var dict: [String: MLMultiArray] = [inputName: MLMultiArray(imageData)]
+        try model.perform { loadedModel in
+            if let feature = loadedModel.modelDescription.inputDescriptionsByName["noise"],
+               let constraint = feature.multiArrayConstraint {
+                let noise = try MLMultiArray(shape: constraint.shape, dataType: constraint.dataType)
+                for index in 0..<noise.count { noise[index] = NSNumber(value: 0.0) }
+                dict["noise"] = noise
+            }
+        }"""
+if old_provider not in source:
+    sys.exit("Upstream Encoder feature provider changed; manual review required")
+source = source.replace(old_provider, new_provider, 1)
 file.chmod(file.stat().st_mode | 0o200)
 file.write_text(source)
 print(f"Patched Apple VAE encoder RGB input selection: {file}")
