@@ -33,11 +33,15 @@ source = source.replace(old, new, 1)
 old_provider = "let dict = [inputName: MLMultiArray(imageData)]"
 new_provider = """var dict: [String: MLMultiArray] = [inputName: MLMultiArray(imageData)]
         try model.perform { loadedModel in
-            if let feature = loadedModel.modelDescription.inputDescriptionsByName["noise"],
-               let constraint = feature.multiArrayConstraint {
-                let noise = try MLMultiArray(shape: constraint.shape, dataType: constraint.dataType)
-                for index in 0..<noise.count { noise[index] = NSNumber(value: 0.0) }
-                dict["noise"] = noise
+            // These inputs are required by certain Core ML VAE conversions.
+            // With a zero-valued noise tensor and noise coefficient, the
+            // encoder follows a deterministic no-extra-noise path.
+            for name in ["noise", "sqrt_one_minus_alphas_cumprod"] {
+                guard let feature = loadedModel.modelDescription.inputDescriptionsByName[name],
+                      let constraint = feature.multiArrayConstraint else { continue }
+                let array = try MLMultiArray(shape: constraint.shape, dataType: constraint.dataType)
+                for index in 0..<array.count { array[index] = NSNumber(value: 0.0) }
+                dict[name] = array
             }
         }"""
 if old_provider not in source:
