@@ -169,28 +169,6 @@ struct EditorView: View {
                 .buttonStyle(.bordered)
                 .padding(.horizontal)
 
-                if engine.generatedImage == nil, let id = store.selectedLayerID,
-                   let layer = store.project.layers.first(where: { $0.id == id }) {
-                    VStack(alignment: .leading) {
-                        Text("Laag: \(layer.name)").font(.headline)
-                        HStack {
-                            Text("Grootte")
-                            Slider(value: Binding(get: { layer.scale },
-                                set: { v in store.update(id) { $0.scale = v } }), in: 0.1...3)
-                        }
-                        HStack {
-                            Text("Dekking")
-                            Slider(value: Binding(get: { layer.opacity },
-                                set: { v in store.update(id) { $0.opacity = v } }), in: 0...1)
-                        }
-                        HStack {
-                            Text("Rotatie")
-                            Slider(value: Binding(get: { layer.rotation },
-                                set: { v in store.update(id) { $0.rotation = v } }), in: -180...180)
-                        }
-                    }.padding(.horizontal)
-                }
-
                 if engine.generatedImage == nil && store.project.layers.count > 1 {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Lagen").font(.headline)
