@@ -9,7 +9,7 @@ final class ModelDownloadStore: ObservableObject {
     @Published var progress: Double = 0
     @Published var downloading = false
     @Published var status = ""
-    @Published var selectedModel: String = ""
+    @Published var selectedModel: String = UserDefaults.standard.string(forKey: "activeCoreMLModel") ?? ""
     private var task: URLSessionDownloadTask?
     private var observation: NSKeyValueObservation?
     private var session: URLSession?
@@ -21,6 +21,20 @@ final class ModelDownloadStore: ObservableObject {
     }
 
     init() { scan() }
+
+    func activate(_ id: String) {
+        let folder = modelDirectory.appendingPathComponent("Installed").appendingPathComponent(id).appendingPathComponent("Resources")
+        let report = CoreMLModelValidator.check(folder)
+        guard report.isComplete else { status = report.details; return }
+        selectedModel = id
+        UserDefaults.standard.set(id, forKey: "activeCoreMLModel")
+        status = report.details
+    }
+
+    func validation(_ id: String) -> String {
+        let folder = modelDirectory.appendingPathComponent("Installed").appendingPathComponent(id).appendingPathComponent("Resources")
+        return CoreMLModelValidator.check(folder).details
+    }
 
     func usePreset(_ preset: ModelPreset) {
         urlText = preset.url
