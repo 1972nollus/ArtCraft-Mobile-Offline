@@ -72,26 +72,18 @@ final class StableDiffusionEngine: ObservableObject {
                     let encoderConfig = MLModelConfiguration()
                     encoderConfig.computeUnits = .cpuOnly
                     let vae = try MLModel(contentsOf: encoderURL, configuration: encoderConfig)
-                    // Apple's encoder expects planar RGB shaped [1, 3, H, W].
-                    // Do not assume the first Core ML input is the RGB tensor:
-                    // some converted VAEs expose extra conditioning inputs.
+                    // Mirror the exact first input used by Apple Encoder.inputDescription.
                     let descriptions = vae.modelDescription.inputDescriptionsByName
-                    let shapes = descriptions.values.compactMap { feature -> [Int]? in
-                        guard feature.type == .multiArray,
-                              let constraint = feature.multiArrayConstraint else { return nil }
-                        return constraint.shape.map { $0.intValue }
-                    }
-                    let rgbShape = shapes.first(where: {
-                        $0.count == 4 && $0[1] == 3 && $0[2] > 0 && $0[3] > 0
-                    })
-                    guard let shape = rgbShape else {
-                        let detected = descriptions.map { key, feature in
-                            let dims = feature.multiArrayConstraint?.shape.map { $0.intValue }
-                            return key + ":" + (dims.map(String.init(describing:)) ?? String(describing: feature.type))
-                        }.joined(separator: " | ")
+                    guard let first = descriptions.first,
+                          let constraint = first.value.multiArrayConstraint else {
                         throw NSError(domain: "ArtCraftOffline", code: 201,
-                                      userInfo: [NSLocalizedDescriptionKey:
-                                        "Core ML VAE-invoer niet herkend: " + detected])
+                                      userInfo: [NSLocalizedDescriptionKey: "Geen VAE-multiarray-invoer gevonden."])
+                    }
+                    let shape = constraint.shape.map { $0.intValue }
+                    guard shape.count == 4, shape[0] == 1, shape[1] == 3,
+                          shape[2] > 0, shape[3] > 0 else {
+                        throw NSError(domain: "ArtCraftOffline", code: 202,
+                                      userInfo: [NSLocalizedDescriptionKey: "Ongeldig VAE-invoerformaat: " + String(describing: shape)])
                     }
                     let width = shape[3], height = shape[2]
                     guard let ctx = CGContext(data: nil, width: width, height: height,
