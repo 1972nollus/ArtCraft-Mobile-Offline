@@ -36,17 +36,11 @@ new_provider = """var dict: [String: MLMultiArray] = [inputName: MLMultiArray(im
             // These inputs are required by certain Core ML VAE conversions.
             // With a zero-valued noise tensor and noise coefficient, the
             // encoder follows a deterministic no-extra-noise path.
-            for (name, feature) in loadedModel.modelDescription.inputDescriptionsByName {
-                guard name != inputName else { continue }
-                guard let constraint = feature.multiArrayConstraint else {
-                    throw NSError(domain: "ArtCraftVAE", code: 301,
-                                  userInfo: [NSLocalizedDescriptionKey: "VAE auxiliary input has unsupported type: " + name])
-                }
+            for name in ["noise", "sqrt_one_minus_alphas_cumprod"] {
+                guard let feature = loadedModel.modelDescription.inputDescriptionsByName[name],
+                      let constraint = feature.multiArrayConstraint else { continue }
                 let array = try MLMultiArray(shape: constraint.shape, dataType: constraint.dataType)
-                // Diffusion coefficients: preserve the encoded image without
-                // injecting additional diffusion noise at this stage.
-                let value: Double = name == "sqrt_alphas_cumprod" ? 1.0 : 0.0
-                for index in 0..<array.count { array[index] = NSNumber(value: value) }
+                for index in 0..<array.count { array[index] = NSNumber(value: 0.0) }
                 dict[name] = array
             }
         }"""
